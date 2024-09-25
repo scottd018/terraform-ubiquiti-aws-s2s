@@ -18,7 +18,7 @@ resource "aws_vpn_gateway" "aws" {
 data "aws_subnets" "selected" {
   filter {
     name   = "subnet-id"
-    values = [var.aws_subnet_ids]
+    values = var.aws_subnet_ids
   }
 }
 
