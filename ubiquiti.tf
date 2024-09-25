@@ -95,7 +95,7 @@ data "http" "current_network_config" {
 resource "unifi_firewall_group" "aws_vpn_addresses" {
   site = local.site_name
 
-  name    = "address_aws_vpn"
+  name    = "address_aws_vpn_${data.aws_vpc.selected.id}"
   type    = "address-group"
   members = [aws_vpn_connection.aws_to_usg.tunnel1_address, aws_vpn_connection.aws_to_usg.tunnel2_address]
 }
@@ -103,15 +103,23 @@ resource "unifi_firewall_group" "aws_vpn_addresses" {
 resource "unifi_firewall_group" "aws_vpn_ports" {
   site = local.site_name
 
-  name    = "port_aws_vpn"
+  name    = "port_aws_vpn_${data.aws_vpc.selected.id}"
   type    = "port-group"
   members = ["500", "4500"]
+}
+
+resource "unifi_firewall_group" "aws_esg_ports" {
+  site = local.site_name
+
+  name    = "port_aws_vpn_esg_${data.aws_vpc.selected.id}"
+  type    = "port-group"
+  members = ["50"]
 }
 
 resource "unifi_firewall_group" "local_vpn_addresses" {
   site = local.site_name
 
-  name    = "address_local_vpn"
+  name    = "address_local_vpn_${data.aws_vpc.selected.id}"
   type    = "address-group"
   members = var.usg_destination_cidrs
 }
@@ -141,6 +149,27 @@ resource "unifi_firewall_rule" "aws_vpn_cgw_udp_500_in" {
   dst_firewall_group_ids = [
     unifi_firewall_group.local_vpn_addresses.id,
     unifi_firewall_group.aws_vpn_ports.id
+  ]
+}
+
+resource "unifi_firewall_rule" "aws_vpn_cgw_esg_50_in" {
+  site = local.site_name
+
+  name       = "allow_aws_vpn_esg_in"
+  action     = "accept"
+  ruleset    = "WAN_LOCAL"
+  enabled    = true
+  rule_index = 2021 #TODO
+  protocol   = "esg"
+
+  src_firewall_group_ids = [
+    unifi_firewall_group.aws_vpn_addresses.id,
+    unifi_firewall_group.aws_esg_ports.id
+  ]
+
+  dst_firewall_group_ids = [
+    unifi_firewall_group.local_vpn_addresses.id,
+    unifi_firewall_group.aws_esg_ports.id
   ]
 }
 
