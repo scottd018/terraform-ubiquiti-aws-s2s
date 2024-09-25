@@ -22,8 +22,14 @@ data "aws_subnets" "selected" {
   }
 }
 
+data "aws_subnet" "selected" {
+  for_each = toset(data.aws_subnets.selected.ids)
+  id       = each.value
+}
+
+# TODO: this makes an assumption that all subnets belong to the same vpc
 data "aws_vpc" "selected" {
-  id = distinct(data.aws_subnets.selected.vpc_ids)[0]
+  id = data.aws_subnet.selected[0].vpc_id
 }
 
 data "aws_route_table" "selected" {
