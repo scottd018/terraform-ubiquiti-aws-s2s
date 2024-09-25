@@ -23,6 +23,12 @@ variable "aws_subnet_ids" {
   }
 }
 
+variable "create_inbound_resolver" {
+  type        = bool
+  default     = true
+  description = "Create inbound resolver for DNS queries."
+}
+
 #
 # ubiquiti usg variables
 #

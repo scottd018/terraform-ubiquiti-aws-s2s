@@ -107,3 +107,61 @@ resource "aws_vpn_gateway_route_propagation" "home" {
   vpn_gateway_id = aws_vpn_gateway.aws.id
   route_table_id = data.aws_route_table.selected[count.index].id
 }
+
+#
+# inbound resolver
+#
+resource "aws_security_group" "resolver" {
+  count = var.create_inbound_resolver ? 1 : 0
+
+  name        = "route53-resolver"
+  description = "Security group for Route 53 Resolver Inbound Endpoint"
+  vpc_id      = aws_vpc.example.id
+
+  # Allow inbound DNS queries (TCP/UDP) on port 53 from the USG side of the connection
+  ingress {
+    from_port   = 53
+    to_port     = 53
+    protocol    = "udp"
+    cidr_blocks = var.usg_destination_cidrs
+  }
+
+  ingress {
+    from_port   = 53
+    to_port     = 53
+    protocol    = "tcp"
+    cidr_blocks = var.usg_destination_cidrs
+  }
+
+  tags = {
+    Name = "${data.aws_vpc.selected.id}-resolver-inbound-sg"
+  }
+}
+
+locals {
+  resolver_subnets = length(var.aws_subnet_ids) == 1 ? [
+    data.aws_subnets.selected.ids[0], data.aws_subnets.selected.ids[0]
+    ] : [data.aws_subnets.selected.ids[0], data.aws_subnets.selected.ids[1]
+  ]
+}
+
+resource "aws_route53_resolver_endpoint" "inbound" {
+  count = var.create_inbound_resolver ? 1 : 0
+
+  direction          = "INBOUND"
+  security_group_ids = [aws_security_group.resolver[0].id]
+
+  ip_address {
+    subnet_id = local.resolver_subnets[0]
+  }
+
+  ip_address {
+    subnet_id = local.resolver_subnets[1]
+  }
+
+  protocols = ["Do53"]
+
+  tags = {
+    Name = "${data.aws_vpc.selected.id}-inbound-resolver"
+  }
+}
