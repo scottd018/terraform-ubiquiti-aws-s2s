@@ -103,7 +103,7 @@ resource "unifi_firewall_group" "aws_vpn_addresses" {
 resource "unifi_firewall_group" "aws_vpn_ports" {
   site = local.site_name
 
-  name    = "port_aws_vpn_test" #TODO
+  name    = "port_aws_vpn"
   type    = "port-group"
   members = ["500", "4500"]
 }
@@ -111,7 +111,7 @@ resource "unifi_firewall_group" "aws_vpn_ports" {
 resource "unifi_firewall_group" "local_vpn_addresses" {
   site = local.site_name
 
-  name    = "address_local_vpn" #TODO
+  name    = "address_local_vpn"
   type    = "address-group"
   members = var.usg_destination_cidrs
 }
