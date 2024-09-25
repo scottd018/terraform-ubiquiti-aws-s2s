@@ -15,19 +15,19 @@ resource "aws_vpn_gateway" "aws" {
   }
 }
 
-data "aws_vpc" "selected" {
-  id = var.aws_vpc_id
-}
-
 data "aws_subnets" "selected" {
   filter {
-    name   = "vpc-id"
-    values = [data.aws_vpc.selected.id]
+    name   = "subnet-id"
+    values = [var.aws_subnet_ids]
   }
 }
 
+data "aws_vpc" "selected" {
+  id = distinct(data.aws_subnets.selected.vpc_ids)[0]
+}
+
 data "aws_route_table" "selected" {
-  count = length(data.aws_subnets.selected.ids)
+  count = length(var.aws_subnet_ids)
 
   subnet_id = data.aws_subnets.selected.ids[count.index]
 }

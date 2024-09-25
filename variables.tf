@@ -13,9 +13,14 @@ variable "aws_vpn_name" {
   description = "Used for naming AWS VPN resources."
 }
 
-variable "aws_vpc_id" {
-  type        = string
-  description = "VPC used for creating the VPN resources and established connections."
+variable "aws_subnet_ids" {
+  type        = list(string)
+  description = "Subnet IDs used for creating the VPN resources and established connections."
+
+  validation {
+    condition     = length(var.aws_subnet_ids) > 0
+    error_message = "'aws_subnet_ids' list must contain at least one value."
+  }
 }
 
 #
