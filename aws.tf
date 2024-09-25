@@ -116,7 +116,7 @@ resource "aws_security_group" "resolver" {
 
   name        = "route53-resolver"
   description = "Security group for Route 53 Resolver Inbound Endpoint"
-  vpc_id      = aws_vpc.example.id
+  vpc_id      = data.aws_vpc.selected.id
 
   # Allow inbound DNS queries (TCP/UDP) on port 53 from the USG side of the connection
   ingress {
@@ -139,10 +139,45 @@ resource "aws_security_group" "resolver" {
 }
 
 locals {
-  resolver_subnets = length(var.aws_subnet_ids) == 1 ? [
-    data.aws_subnets.selected.ids[0], data.aws_subnets.selected.ids[0]
-    ] : [data.aws_subnets.selected.ids[0], data.aws_subnets.selected.ids[1]
-  ]
+  needs_ip = var.create_inbound_resolver && length(data.aws_subnets.selected.ids) == 1
+}
+
+# TODO: if same subnet is specific we must choose a random ip which may have conflicts because we need 2 unique
+# subnets per the TF provider input. see https://github.com/hashicorp/terraform-provider-aws/issues/28233
+data "aws_network_interfaces" "used" {
+  count = local.needs_ip ? 1 : 0
+
+  filter {
+    name   = "subnet-id"
+    values = [data.aws_subnets.selected.ids[count.index]]
+  }
+}
+
+data "aws_network_interface" "used" {
+  count = local.needs_ip ? length(data.aws_network_interfaces.used[0].ids) : 0
+
+  id = data.aws_network_interfaces.used[0].ids[count.index]
+}
+
+locals {
+  sorted_ips_as_integers = local.needs_ip ? sort([
+    for interface in data.aws_network_interface.used :
+    tonumber(split(".", interface.private_ip)[0]) * 16777216 + # 2^24
+    tonumber(split(".", interface.private_ip)[1]) * 65536 +    # 2^16
+    tonumber(split(".", interface.private_ip)[2]) * 256 +      # 2^8
+    tonumber(split(".", interface.private_ip)[3])              # 2^0
+  ]) : []
+
+  # TODO: this makes an assumption that the last available IP in the range is not the last
+  # in this list or that this IP is not resreved by AWS
+  next_ip_integer = local.needs_ip ? local.sorted_ips_as_integers[length(local.sorted_ips_as_integers) - 1] + 1 : 0
+
+  next_ip = local.needs_ip ? join(".", [
+    tostring(floor(local.next_ip_integer / 16777216)),           # 2^24
+    tostring(floor((local.next_ip_integer % 16777216) / 65536)), # 2^16
+    tostring(floor((local.next_ip_integer % 65536) / 256)),      # 2^8
+    tostring(local.next_ip_integer % 256)                        # 2^0
+  ]) : ""
 }
 
 resource "aws_route53_resolver_endpoint" "inbound" {
@@ -152,11 +187,14 @@ resource "aws_route53_resolver_endpoint" "inbound" {
   security_group_ids = [aws_security_group.resolver[0].id]
 
   ip_address {
-    subnet_id = local.resolver_subnets[0]
+    subnet_id = data.aws_subnets.selected.ids[0]
   }
 
+  # TODO: if same subnet is specific we must choose a random ip which may have conflicts because we need 2 unique
+  # subnets per the TF provider input. see https://github.com/hashicorp/terraform-provider-aws/issues/28233
   ip_address {
-    subnet_id = local.resolver_subnets[1]
+    subnet_id = length(data.aws_subnets.selected.ids) == 1 ? data.aws_subnets.selected.ids[0] : data.aws_subnets.selected.ids[1]
+    ip        = length(data.aws_subnets.selected.ids) == 1 ? local.next_ip : null
   }
 
   protocols = ["Do53"]

@@ -134,7 +134,7 @@ resource "unifi_firewall_group" "local_vpn_addresses" {
 resource "unifi_firewall_rule" "aws_vpn_cgw_udp_500_in" {
   site = local.site_name
 
-  name       = "allow_aws_vpn_udp_in"
+  name       = "allow_aws_vpn_udp_in_${data.aws_vpc.selected.id}"
   action     = "accept"
   ruleset    = "WAN_LOCAL"
   enabled    = true
@@ -152,15 +152,15 @@ resource "unifi_firewall_rule" "aws_vpn_cgw_udp_500_in" {
   ]
 }
 
-resource "unifi_firewall_rule" "aws_vpn_cgw_esg_50_in" {
+resource "unifi_firewall_rule" "aws_vpn_cgw_esp_50_in" {
   site = local.site_name
 
-  name       = "allow_aws_vpn_esg_in"
+  name       = "allow_aws_vpn_esp_in_${data.aws_vpc.selected.id}"
   action     = "accept"
   ruleset    = "WAN_LOCAL"
   enabled    = true
   rule_index = 2021 #TODO
-  protocol   = "esg"
+  protocol   = "esp"
 
   src_firewall_group_ids = [
     unifi_firewall_group.aws_vpn_addresses.id,
